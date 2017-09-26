@@ -1,4 +1,4 @@
-import {Component, OnInit, OnChanges, ViewChild, ElementRef, Input} from '@angular/core';
+import {Component, OnInit, OnChanges, ViewChild, ElementRef, Input, Output, EventEmitter} from '@angular/core';
 import * as d3 from 'd3';
 
 @Component({
@@ -11,6 +11,8 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
 
     @ViewChild('nodeGraphEditor') private chartContainer: ElementRef;
     @Input() public data: any = {nodes: [], links: []};
+    @Output() onSave: EventEmitter<any> = new EventEmitter();
+    @Output() onClear: EventEmitter<any> = new EventEmitter();
     private margin: any = {top: 50, bottom: 50, left: 50, right: 50};
     private width: number;
     private height: number;
@@ -254,12 +256,9 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
         this.simulation.force('link').links(this.data.links);
     }
 
-    fnAddNewNode() {
-        const lastNode = this.data.nodes[this.data.nodes.length - 1];
-        this.data.nodes.push({id: lastNode.id++, label: 'Node' + lastNode.id++, r: 20});
-        this.fnUpdateChart();
-    }
-
+    /**
+     * Draw line between node
+     * */
     fnDrawLine(d) {
         const deltaX = d.target.x - d.source.x;
         const deltaY = d.target.y - d.source.y;
@@ -278,6 +277,9 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
         return 'M' + sourceX + ',' + sourceY + 'L' + targetX + ',' + targetY;
     }
 
+    /**
+     * Node drag start event
+     * */
     fnDragStarted(self, d) {
         if (!d3.event.active) {
             self.simulation.alphaTarget(0.3).restart();
@@ -286,17 +288,70 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
         d.fy = d.y;
     }
 
+    /**
+     * Node dragged event
+     * */
     fnDragged(self, d) {
         d.fx = d3.event.x;
         d.fy = d3.event.y;
     }
 
+    /**
+     * Node drag end event
+     * */
     fnDragEnded(self, d) {
         if (!d3.event.active) {
             self.simulation.alphaTarget(0);
         }
         // d.fx = null;
         // d.fy = null;
+    }
+
+    /**
+     * Add new node in graph.
+     * */
+    fnAddNewNode() {
+        const id = Date.now();
+        this.data.nodes.push({id: id, label: 'NODE:' + id, r: 20});
+        this.fnUpdateChart();
+    }
+
+    /**
+     * Return graph nodes and links data with postion
+     * */
+    fnSave(data): void {
+        const newData = {nodes: [], links: []};
+        for (let nodeIndex = 0; nodeIndex < data.nodes.length; nodeIndex++) {
+            const nObj = data.nodes[nodeIndex];
+            newData.nodes.push({
+                id: nObj.id,
+                label: nObj.label,
+                r: nObj.r,
+                x: nObj.x,
+                y: nObj.y,
+                fx: nObj.fx,
+                fy: nObj.fy
+            });
+        }
+        for (let linkIndex = 0; linkIndex < data.links.length; linkIndex++) {
+            const lObj = data.links[linkIndex];
+            newData.links.push({
+                source: lObj.source.id,
+                target: lObj.target.id,
+                left: lObj.left,
+                right: lObj.right
+            });
+        }
+        this.onSave.emit(newData);
+    }
+
+    /**
+     * Clear Graph
+     * */
+    fnClear() {
+        this.data = {nodes: [], links: []};
+        this.fnUpdateChart();
+        this.onClear.emit();
     }
 
     fnResize() {
@@ -306,7 +361,5 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
 
         this.svg.attr('width', element.offsetWidth).attr('height', element.offsetHeight);
         this.chart.attr('transform', `translate(${this.margin.left}, ${this.margin.top})`);
-
     }
-
 }

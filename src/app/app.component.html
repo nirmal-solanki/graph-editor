@@ -1,3 +1,4 @@
 <!--The content below is only a placeholder and can be replaced.-->
-<app-node-graph-editor [data]="data"></app-node-graph-editor>
+<app-node-graph-editor [data]="data" (onSave)="fnSaveGraph($event)"
+                       (onClear)="fnClearGraph()"></app-node-graph-editor>
 

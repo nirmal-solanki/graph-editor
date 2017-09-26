@@ -1,5 +1,4 @@
 import {Component} from '@angular/core';
-import * as d3 from 'd3';
 
 @Component({
     selector: 'app-root',
@@ -16,16 +15,18 @@ export class AppComponent {
     }
 
     fnCreateData() {
-        const range = 5;
-        this.data = {
-            nodes: d3.range(0, range).map((d) => {
-                return {id: d, label: 'Node' + d, r: 20};
-            }),
-            links: d3.range(0, range).map(() => {
-                const source = ~~d3.randomUniform(range)();
-                const target = ~~d3.randomUniform(range)();
-                return {source: source, target: target, left: source < target, right: source > target};
-            })
-        };
+        if (localStorage.getItem('NGE_DB')) {
+            this.data = JSON.parse(atob(localStorage.getItem('NGE_DB')));
+        } else {
+            this.data = {nodes: [], links: []};
+        }
+    }
+
+    fnSaveGraph(data) {
+        localStorage.setItem('NGE_DB', btoa(JSON.stringify(data)));
+    }
+
+    fnClearGraph() {
+        localStorage.removeItem('NGE_DB');
     }
 }
