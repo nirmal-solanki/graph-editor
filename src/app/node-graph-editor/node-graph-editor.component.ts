@@ -66,8 +66,8 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
             });
 
         this.svg = d3.select(element).append('svg')
-            .attr('width', element.offsetWidth - 3)
-            .attr('height', element.offsetHeight - 3)
+            .attr('width', element.offsetWidth)
+            .attr('height', element.offsetHeight)
             .on('mousemove', () => {
                 if (!self.mouseDownNode) {
                     return;
@@ -304,7 +304,7 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
         this.width = element.offsetWidth - this.margin.left - this.margin.right;
         this.height = element.offsetHeight - this.margin.top - this.margin.bottom;
 
-        this.svg.attr('width', element.offsetWidth - 3).attr('height', element.offsetHeight - 3);
+        this.svg.attr('width', element.offsetWidth).attr('height', element.offsetHeight);
         this.chart.attr('transform', `translate(${this.margin.left}, ${this.margin.top})`);
 
     }

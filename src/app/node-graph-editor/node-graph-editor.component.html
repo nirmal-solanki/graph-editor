@@ -1,1 +1,25 @@
-<div class="node-graph-editor" (window:resize)="fnResize($event)" #nodeGraphEditor></div>
+<div class="wrapper">
+    <header class="header">
+        <h2 class="header-title">Node Graph Editor</h2>
+    </header>
+    <section class="content">
+        <div class="columns">
+            <aside class="sidebar-first">
+                <div class="btn-group">
+                    <button (click)="fnAddNewNode()">Add Node</button>
+                    <button>Save Graph</button>
+                </div>
+            </aside>
+            <main class="main">
+                <div class="node-graph-editor" (window:resize)="fnResize($event)" #nodeGraphEditor></div>
+            </main>
+            <aside class="sidebar-second">
+
+            </aside>
+        </div>
+    </section>
+    <footer class="footer">
+        <p class="footer-text">All rights reserved © 2017</p>
+    </footer>
+</div>
+
