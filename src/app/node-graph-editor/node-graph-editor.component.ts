@@ -157,88 +157,83 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
         const nodeGroup = this.nodes.selectAll('g.node').data(this.data.nodes);
 
         // enter selection
-        const nodeGroupEnter = nodeGroup.enter().append('g').attr('class', 'node');
+        const nodeGroupEnter = nodeGroup.enter().append('g').attr('class', 'node').call(this.drag);
         nodeGroupEnter.append('circle')
             .attr('class', 'parent')
             .attr('r', (d) => d.r)
             .style('cursor', 'crosshair')
             .style('fill', 'blue')
             .on('mousedown', function (d) {
-                if (d3.event.ctrlKey) {
-                    return;
-                }
-
-                // select node
-                self.mouseDownNode = d;
-
-                const mouse = d3.mouse(d3.event.currentTarget);
-                mouse[0] = mouse[0] + 50;
-                mouse[1] = mouse[1] + 50;
-                // reposition drag line
-                self.dragLine
-                    .style('marker-end', 'url(#end-arrow)')
-                    .attr('d', 'M' + mouse[0] + ',' + mouse[1] + 'L' +
-                        mouse[0] + ',' + mouse[1]);
+                self.fnNodeMouseDown(self, d);
             })
             .on('mouseup', function (d) {
-                if (!self.mouseDownNode) {
-                    return;
-                }
-
-                // needed by FF
-                self.dragLine
-                    .style('marker-end', '')
-                    .attr('d', 'M0,0L0,0');
-
-                // check for drag-to-self
-                self.mouseUpNode = d;
-                if (self.mouseUpNode === self.mouseDownNode) {
-                    return;
-                }
-
-                // add link to graph (update if exists)
-                // NB: links are strictly source < target; arrows separately specified by booleans
-                let source, target, direction;
-                if (self.mouseDownNode.id < self.mouseUpNode.id) {
-                    source = self.mouseDownNode;
-                    target = self.mouseUpNode;
-                    direction = 'right';
-                } else {
-                    source = self.mouseUpNode;
-                    target = self.mouseDownNode;
-                    direction = 'left';
-                }
-
-                let link;
-                link = self.data.links.filter(function (l) {
-                    return (l.source === source && l.target === target);
-                })[0];
-
-                if (link) {
-                    link[direction] = true;
-                } else {
-                    link = {source: source, target: target, left: false, right: false};
-                    link[direction] = true;
-                    self.data.links.push(link);
-                }
-
-                self.fnUpdateChart();
+                self.fnNodeMouseUp(self, d);
             });
 
         nodeGroupEnter.append('circle')
             .attr('class', 'child')
             .attr('r', (d) => d.r - 5)
-            .style('fill', 'skyblue')
-            .call(this.drag);
+            .style('fill', 'skyblue');
+
+        nodeGroupEnter.append('circle')
+            .attr('class', 'delete')
+            .attr('r', 8)
+            .attr('cx', 15)
+            .attr('cy', -15)
+            .style('cursor', 'pointer')
+            .style('fill', 'red')
+            .on('click', function (d) {
+                self.fnRemoveNode(self, d);
+            });
+
+        nodeGroupEnter.append('text')
+            .attr('class', 'delete-text')
+            .text('X')
+            .attr('x', 11)
+            .attr('y', -10)
+            .style('fill', '#fff')
+            .style('cursor', 'pointer')
+            .style('font-size', '12px')
+            .on('click', function (d) {
+                self.fnRemoveNode(self, d);
+            });
 
         // update selection -- this will also contain the newly appended elements
         nodeGroup.select('circle.parent')
             .attr('r', (d) => d.r)
             .style('cursor', 'crosshair')
-            .style('fill', 'blue');
+            .style('fill', 'blue')
+            .on('mousedown', function (d) {
+                self.fnNodeMouseDown(self, d);
+            })
+            .on('mouseup', function (d) {
+                self.fnNodeMouseUp(self, d);
+            });
+
         nodeGroup.select('circle.child')
-            .attr('r', (d) => d.r - 5).style('fill', 'skyblue')
-            .call(this.drag);
+            .attr('r', (d) => d.r - 5)
+            .style('fill', 'skyblue');
+
+        nodeGroup.select('circle.delete')
+            .attr('r', 8)
+            .attr('cx', 15)
+            .attr('cy', -15)
+            .style('cursor', 'pointer')
+            .style('fill', 'red')
+            .on('click', function (d) {
+                self.fnRemoveNode(self, d);
+            });
+
+        nodeGroup.select('text.delete-text')
+            .text('X')
+            .attr('x', 11)
+            .attr('y', -10)
+            .style('fill', '#fff')
+            .style('cursor', 'pointer')
+            .style('font-size', '12px')
+            .on('click', function (d) {
+                self.fnRemoveNode(self, d);
+            });
 
         // exit selection
         nodeGroup.exit().remove();
@@ -246,12 +241,7 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
         this.simulation.nodes(this.data.nodes).on('tick', () => {
             this.links.selectAll('.link').attr('d', self.fnDrawLine);
 
-            this.nodes.selectAll('.node').select('.parent')
-                .attr('cx', (d) => d.x)
-                .attr('cy', (d) => d.y);
-            this.nodes.selectAll('.node').select('.child')
-                .attr('cx', (d) => d.x)
-                .attr('cy', (d) => d.y);
+            this.nodes.selectAll('.node').attr('transform', (d) => `translate(${d.x}, ${d.y})`);
         });
         this.simulation.force('link').links(this.data.links);
     }
@@ -275,6 +265,73 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
             return '';
         }
         return 'M' + sourceX + ',' + sourceY + 'L' + targetX + ',' + targetY;
+    }
+
+    /**
+     * Mouse down event for select source node before connect to target node.
+     * */
+    fnNodeMouseDown(self, d) {
+        d3.event.stopPropagation();
+        if (d3.event.ctrlKey) {
+            return;
+        }
+
+        // select node
+        self.mouseDownNode = d;
+
+        // reposition drag line
+        self.dragLine
+            .style('marker-end', 'url(#end-arrow)')
+            .attr('d', 'M' + (d.x + 50) + ',' + (d.y + 50) + 'L' +
+                (d.x + 50) + ',' + (d.y + 50));
+    }
+
+    /**
+     * Mouse up event for create new link and connect source and target node.
+     * */
+    fnNodeMouseUp(self, d) {
+        if (!self.mouseDownNode) {
+            return;
+        }
+
+        // needed by FF
+        self.dragLine
+            .style('marker-end', '')
+            .attr('d', 'M0,0L0,0');
+
+        // check for drag-to-self
+        self.mouseUpNode = d;
+        if (self.mouseUpNode === self.mouseDownNode) {
+            return;
+        }
+
+        // add link to graph (update if exists)
+        // NB: links are strictly source < target; arrows separately specified by booleans
+        let source, target, direction;
+        if (self.mouseDownNode.id < self.mouseUpNode.id) {
+            source = self.mouseDownNode;
+            target = self.mouseUpNode;
+            direction = 'right';
+        } else {
+            source = self.mouseUpNode;
+            target = self.mouseDownNode;
+            direction = 'left';
+        }
+
+        let link;
+        link = self.data.links.filter(function (l) {
+            return (l.source === source && l.target === target);
+        })[0];
+
+        if (link) {
+            link[direction] = true;
+        } else {
+            link = {source: source, target: target, left: false, right: false};
+            link[direction] = true;
+            self.data.links.push(link);
+        }
+
+        self.fnUpdateChart();
     }
 
     /**
@@ -314,6 +371,33 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
         const id = Date.now();
         this.data.nodes.push({id: id, label: 'NODE:' + id, r: 20});
         this.fnUpdateChart();
+    }
+
+    /**
+     * Remove node from graph.
+     * */
+    fnRemoveNode(self, d) {
+        d3.event.stopPropagation();
+        if (confirm('Are you sure you want to delete this node?')) {
+            const sourceLinks = self.data.links.filter((slObj) => {
+                return slObj.source.id === d.id;
+            }).map((sl) => {
+                return sl.index;
+            });
+            for (let i = sourceLinks.length - 1; i >= 0; i--) {
+                self.data.links.splice(sourceLinks[i], 1);
+            }
+            const targetLinks = self.data.links.filter((tlObj) => {
+                return tlObj.target.id === d.id;
+            }).map((tl) => {
+                return tl.index;
+            });
+            for (let j = targetLinks.length - 1; j >= 0; j--) {
+                self.data.links.splice(targetLinks[j], 1);
+            }
+            self.data.nodes.splice(d.index, 1);
+            self.fnUpdateChart();
+        }
     }
 
     /**
