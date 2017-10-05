@@ -71,19 +71,23 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
             .attr('width', element.offsetWidth)
             .attr('height', element.offsetHeight)
             .on('mousemove', () => {
+                d3.event.preventDefault();
                 if (!self.mouseDownNode) {
                     return;
                 }
-                const mouse = d3.mouse(d3.event.currentTarget);
-                self.dragLine.attr('d', 'M' + (self.mouseDownNode.x + 50) + ',' + (self.mouseDownNode.y + 50) +
-                    'L' + mouse[0] + ',' + mouse[1]);
+                const mouse = d3.mouse(d3.select('.nodes').node());
+                const r = self.mouseDownNode.r;
+                self.dragLine.attr('d', 'M' + (self.mouseDownNode.x) + ',' + (self.mouseDownNode.y) +
+                    'L' + (mouse[0]) + ',' + (mouse[1]));
             })
             .on('mouseup', () => {
+                d3.event.preventDefault();
                 self.mouseDownNode = null;
                 self.dragLine
                     .style('marker-end', '')
                     .attr('d', 'M0,0L0,0');
             });
+
 
         // define arrow markers for graph links
         this.svg.append('svg:defs').append('svg:marker')
@@ -108,16 +112,28 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
             .attr('d', 'M10,-5L0,0L10,5')
             .attr('fill', '#000');
 
-        this.dragLine = this.svg.append('svg:path')
+        this.svg.append('rect')
+            .attr('x', '0')
+            .attr('y', '0')
+            .attr('height', this.height)
+            .attr('width', this.width)
+            .style('fill', 'transparent')
+            .call(d3.zoom().scaleExtent([0.5, 2]).on('zoom', () => {
+                self.chart.attr('transform', d3.event.transform);
+            }));
+
+        this.chart = this.svg.append('g')
+            .attr('class', 'chart-area')
+            .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`)
+            .append('g')
+            .attr('class', 'zoom-area');
+
+        this.dragLine = this.chart.append('svg:path')
             .attr('class', 'link drag-line')
             .style('fill', 'none')
             .style('stroke', 'black')
             .style('stroke-width', 2)
             .attr('d', 'M0,0L0,0');
-
-        this.chart = this.svg.append('g')
-            .attr('class', 'chart-area')
-            .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`);
 
         this.links = this.chart.append('g').attr('class', 'links');
         this.nodes = this.chart.append('g').attr('class', 'nodes');
@@ -189,17 +205,21 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
         nodeGroupEnter.append('text')
             .attr('class', 'delete-text')
             .text('X')
-            .attr('x', 11)
-            .attr('y', -10)
+            .attr('x', 15)
+            .attr('y', -15)
             .style('fill', '#fff')
             .style('cursor', 'pointer')
             .style('font-size', '12px')
+            .style('font-family', 'verdana')
+            .style('text-anchor', 'middle')
+            .style('dominant-baseline', 'central')
             .on('click', function (d) {
                 self.fnRemoveNode(self, d);
             });
 
         // update selection -- this will also contain the newly appended elements
-        nodeGroup.select('circle.parent')
+        nodeGroup
+            .select('circle.parent')
             .attr('r', (d) => d.r)
             .style('cursor', 'crosshair')
             .style('fill', 'blue')
@@ -226,18 +246,20 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
 
         nodeGroup.select('text.delete-text')
             .text('X')
-            .attr('x', 11)
-            .attr('y', -10)
+            .attr('x', 15)
+            .attr('y', -15)
             .style('fill', '#fff')
             .style('cursor', 'pointer')
             .style('font-size', '12px')
+            .style('font-family', 'verdana')
+            .style('text-anchor', 'middle')
+            .style('dominant-baseline', 'central')
             .on('click', function (d) {
                 self.fnRemoveNode(self, d);
             });
 
         // exit selection
         nodeGroup.exit().remove();
-
         this.simulation.nodes(this.data.nodes).on('tick', () => {
             this.links.selectAll('.link').attr('d', self.fnDrawLine);
 
@@ -276,14 +298,12 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
             return;
         }
 
-        // select node
         self.mouseDownNode = d;
-
         // reposition drag line
         self.dragLine
             .style('marker-end', 'url(#end-arrow)')
-            .attr('d', 'M' + (d.x + 50) + ',' + (d.y + 50) + 'L' +
-                (d.x + 50) + ',' + (d.y + 50));
+            .attr('d', 'M' + (d.x) + ',' + (d.y) + 'L' +
+                (d.x) + ',' + (d.y));
     }
 
     /**
@@ -293,7 +313,6 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
         if (!self.mouseDownNode) {
             return;
         }
-
         // needed by FF
         self.dragLine
             .style('marker-end', '')
@@ -369,7 +388,12 @@ export class NodeGraphEditorComponent implements OnInit, OnChanges {
      * */
     fnAddNewNode() {
         const id = Date.now();
-        this.data.nodes.push({id: id, label: 'NODE:' + id, r: 20});
+        const nodeName = prompt('Please enter node name', 'NODE:' + id);
+        if (nodeName) {
+            this.data.nodes.push({id: id, label: nodeName, r: 20});
+        } else {
+            this.data.nodes.push({id: id, label: 'NODE:' + id, r: 20});
+        }
         this.fnUpdateChart();
     }
 
